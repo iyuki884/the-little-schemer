@@ -236,3 +236,524 @@
 
 ということで、`will-stop?`なる関数があるという前提が間違っているという結論。
 チューリングとゲーデルの名前が出てくるので、不完全性定理に関連した話なんだろうか。
+
+## 再帰的定義とは
+
+「再帰的定義とは」という質問から`define`を使わずに`length`を定義する話へと展開していく。なんだか複雑そうだが順番に読んでいこう。
+
+とりあえず`length`を再掲。
+
+```scheme
+(define length
+  (lambda (lat)
+    (cond
+      ((null? lat) 0)
+      (else (add1 (length (cdr lat)))))))
+```
+
+`define`を使わないと再帰で`length`を指定できない。ということでいったん次のような関数が登場する。
+
+```scheme
+(lambda (l)
+  (cond
+    ((null? l) 0)
+    (else (add1 (eternity (cdr l))))))
+```
+
+変な感じだが、名前のついてない関数か。空リストを与えると0を返す。ほかは応答なしになる。つまり空リストの長さを求めることだけができる関数。`length0`と呼ぶことにする。
+
+```scheme
+((lambda (l)
+  (cond
+    ((null? l) 0)
+    (else (add1 (eternity (cdr l)))))) '()) ; 0
+```
+
+次に、1以下の要素からなるリストの長さを求めることができる`length<=1`を考える。`length0`の`eternity`の部分を`length0`に置き換えてやればよい。
+
+```scheme
+(lambda (l)
+  (cond
+    ((null? l) 0)
+    (else (add1
+           ((lambda (l)
+              (cond
+                ((null? l) 0)
+                (else (add1
+                       (eternity (cdr l))))))
+            (cdr l))))))
+```
+
+```scheme
+((lambda (l)
+  (cond
+    ((null? l) 0)
+    (else (add1
+           ((lambda (l)
+              (cond
+                ((null? l) 0)
+                (else (add1
+                       (eternity (cdr l))))))
+            (cdr l)))))) '())
+; 0
+
+((lambda (l)
+  (cond
+    ((null? l) 0)
+    (else (add1
+           ((lambda (l)
+              (cond
+                ((null? l) 0)
+                (else (add1
+                       (eternity (cdr l))))))
+            (cdr l)))))) '(a))
+; 1
+```
+
+ふむ。とりあえずこうやって繋げていけば`length`に近づいていくことはできる。ただし無限に書くことはできないので限界がある。同じパターンの繰り返しなので、ここをうまいことやる方法があるんだろうな。
+
+`define`で名前をつけることができないので代わりに`(lambda (length) ...)`で名前をつける。
+
+```scheme
+((lambda (length)
+  (lambda (l)
+    (cond
+      ((null? l) 0)
+      (else (add1 (length (cdr l)))))))
+ eternity)
+```
+
+ん～？これはどういう形だろうか。
+ああ、`(lambda (length) ... `に`eternity`を渡しているのか。つまり`length0`と同じになると。
+
+```scheme
+(((lambda (length)
+  (lambda (l)
+    (cond
+      ((null? l) 0)
+      (else (add1 (length (cdr l)))))))
+ eternity) '())
+; 0
+```
+
+同じように動作する。これを使って`length<=1`を書いてみる。
+
+```scheme
+((lambda (f)
+  (lambda (l)
+    (cond
+      ((null? l) 0)
+      (else (add1 (f (cdr l)))))))
+ ((lambda (g)
+   (lambda (l)
+     (cond
+       ((null? l) 0)
+       (else (add1 (g (cdr l)))))))
+ eternity))
+```
+
+たしかに`length<=1`になった。でもやっぱり繰り返しが増えていくのは変わらない。次はどうするのか。
+
+> `length`を引数として取り、`length`に似た関数を返す関数に名前を付けましょう。
+
+はて。どういうことでしょうか。
+
+```scheme
+((lambda (mk-length)
+   (mk-length eternity))
+ (lambda (length)
+   (lambda (l)
+     (cond
+       ((null? l) 0)
+       (else (add1 (length (cdr l))))))))
+```
+
+ほむ。たしかに展開してみると`length0`になる。`length<=1`を作るにはどうするか。
+
+```scheme
+((lambda (mk-length)
+   (mk-length
+    (mk-length eternity)))
+ (lambda (length)
+   (lambda (l)
+     (cond
+       ((null? l) 0)
+       (else (add1 (length (cdr l))))))))
+```
+
+`mk-length`の部分を重ねていけばいいのか。これまでのに比べたらすっきりした。ロジックの部分は重複がなくなっている。
+
+> 再帰とはどんなものですか。
+> 
+> 任意の関数への`mk-length`の適用が無限に連鎖しているようなものです。
+
+なるほど。
+
+> 実際に無限の連鎖が必要ですか。
+> 
+> もちろん、そんなことはありません。`length`を使うときはいつも有限回しか必要としませんが、何回必要かはわかりません。
+
+遅延評価みたいな話につながるんだろうか。
+十分な回数`mk-length`を重ねれば`length`と同じ関数として使えるけど、十分な回数っていうのはわからないよね。いつかは`eternity`が呼ばれてしまう。じゃあ、どうするか。
+
+```scheme
+((lambda (mk-length)
+   (mk-length mk-length))
+ (lambda (length)
+   (lambda (l)
+     (cond
+       ((null? l) 0)
+       (else (add1
+              (length (cdr l))))))))
+```
+
+これは`length0`らしい。`eternity`がなくなった。
+
+```scheme
+(((lambda (mk-length)
+   (mk-length mk-length))
+ (lambda (length)
+   (lambda (l)
+     (cond
+       ((null? l) 0)
+       (else (add1
+              (length (cdr l))))))))) '())
+; 0
+```
+
+たしかに`length0`として動く。`'(a)`を渡すとエラーになってしまった。
+
+`length`を`mk-length`に名前変更してもいいらしい。
+
+```scheme
+((lambda (mk-length)
+   (mk-length mk-length))
+ (lambda (mk-length)
+   (lambda (l)
+     (cond
+       ((null? l) 0)
+       (else (add1
+              (mk-length (cdr l)
+```
+
+まあ、問題なさそう。読みやすいんだろうか。
+
+それはいいとして、これが`'(a)`を渡した時にうまくいかないのはなぜなのか。なんかいい感じに再帰しそうな気がしない？
+
+`mk-length (cdr l)`が呼ばれるので`(mk-length '())`となるはず。ああ、`mk-length`の引数がリストになるからダメなのか。なるほど。
+
+では、`length<=1`にするにはどうすればいいんでしょうか。
+
+```scheme
+((lambda (mk-length)
+   (mk-length mk-length))
+ (lambda (mk-length)
+   (lambda (l)
+     (cond
+       ((null? l) 0)
+       (else (add1
+              ((mk-length eternity) (cdr l))))))))
+```
+
+`eternity`が再登場。これで`length<=1`になった。
+
+```scheme
+(((lambda (mk-length)
+   (mk-length mk-length))
+ (lambda (mk-length)
+   (lambda (l)
+     (cond
+       ((null? l) 0)
+       (else (add1
+              ((mk-length eternity) (cdr l)))))))) '())
+; 0
+
+(((lambda (mk-length)
+   (mk-length mk-length))
+ (lambda (mk-length)
+   (lambda (l)
+     (cond
+       ((null? l) 0)
+       (else (add1
+              ((mk-length eternity) (cdr l)))))))) '(a))
+; 1
+```
+
+ここで`eternity`を`mk-length`に置き換えてやる。
+
+```scheme
+((lambda (mk-length)
+   (mk-length mk-length))
+ (lambda (mk-length)
+   (lambda (l)
+     (cond
+       ((null? l) 0)
+       (else (add1
+              ((mk-length mk-length) (cdr l))))))))
+```
+
+`length`ができた！！？
+
+```scheme
+(((lambda (mk-length)
+   (mk-length mk-length))
+ (lambda (mk-length)
+   (lambda (l)
+     (cond
+       ((null? l) 0)
+       (else (add1
+              ((mk-length mk-length) (cdr l))))))))) '(a b c))
+; 3
+```
+
+うまくいってる感じ。でもまだ終わらない。
+
+> 1つ問題が残っています。これはもはや`length`のような関数を含んでいません。
+
+どういうことでしょうか。元の`length`を思い出してみると`(mk-length mk-length)`の部分が`length`に相当しているって話かな。なので、ここを`length`と名付けよう。
+
+```scheme
+((lambda (mk-length)
+   (mk-length mk-length))
+ (lambda (mk-length)
+   ((lambda (length)
+      (lambda (l)
+        (cond
+          ((null? l) 0)
+          (else (add1 (length (cdr l)))))))
+    (mk-length mk-length))))
+```
+
+ということで変形してみた。うまくいきそうな気がするが、実際これは無限ループになってしまう。なぜ。
+
+どうやら関数を評価する時に`mk-length`が無限に展開されてしまうようだ。元の形だと`else`に到達したときだけ評価されたたから問題なかったのか。
+
+とりあえず本の展開を追いかけてみる。この関数を評価していく。
+
+```scheme
+((lambda (mk-length)
+   (mk-length mk-length)) ; (1)
+ (lambda (mk-length)      ; (2)
+   ((lambda (length)
+      (lambda (l)
+        (cond
+          ((null? l) 0)
+          (else (add1 (length (cdr l)))))))
+    (mk-length mk-length))))
+```
+
+(2)の`lambda`部分が引数になっているので(1)の`mk-length`に(2)を展開する。
+
+```scheme
+((lambda (mk-length)
+   ((lambda (length)
+      (lambda (l)
+        (cond
+          ((null? l) 0)
+          (else (add1 (length (cdr l)))))))
+    (mk-length mk-length))) ; (1)
+ (lambda (mk-length)        ; (2)
+   ((lambda (length)
+      (lambda (l)
+        (cond
+          ((null? l) 0)
+          (else (add1 (length (cdr l)))))))
+    (mk-length mk-length))))
+```
+
+先ほどと同じく(1)の`mk-length`に(2)を当てはめていく。
+
+```scheme
+((lambda (length)
+   (lambda (l)
+     (cond
+       ((null? l) 0)
+       (else (add1 (length (cdr l)))))))
+ ((lambda (mk-length)
+    ((lambda (length)
+       (lambda (l)
+         (cond
+           ((null? l) 0)
+           (else (add1 (length (cdr l)))))))
+     (mk-length mk-length))) ; (1)
+  (lambda (mk-length)        ; (2)
+    ((lambda (length)
+       (lambda (l)
+         (cond
+           ((null? l) 0)
+           (else (add1 (length (cdr l)))))))
+     (mk-len
+```
+
+結局`mk-length`が延々と展開されていってしまうので評価が終わらない。
+
+それじゃあ、次はどうするのか。
+
+```scheme
+((lambda (mk-length)
+   (mk-length mk-length))
+ (lambda (mk-length)
+   (lambda (l)
+     (cond
+       ((null? l) 0)
+       (else
+        (add1
+         ((lambda (x)
+            ((mk-length mk-length) x))
+          (cdr l))))))))
+```
+
+これは`(mk-length mk-length)`に名前をつける前と同じように動く。先ほどと同じように名前をつけてくくりだしてみる。
+
+```scheme
+((lambda (mk-length)
+   (mk-length mk-length))
+ (lambda (mk-length)
+   ((lambda (length)
+      (lambda (l)
+        (cond
+          ((null? l) 0)
+          (else
+           (add1 (length (cdr l)))))))
+    (lambda (x)
+      ((mk-length mk-length) x)))))
+```
+
+これだとうまく動作する。どうして。これについても展開してみる。
+
+```scheme
+((lambda (mk-length)
+   ((lambda (length)
+      (lambda (l)
+        (cond
+          ((null? l) 0)
+          (else
+           (add1 (length (cdr l)))))))
+    (lambda (x)
+      ((mk-length mk-length) x))))
+ (lambda (mk-length)
+   ((lambda (length)
+      (lambda (l)
+        (cond
+          ((null? l) 0)
+          (else
+           (add1 (length (cdr l)))))))
+    (lambda (x)
+      ((mk-length mk-length) x)))))
+```
+
+こんな感じだろうか。で、さらに展開する。
+
+```scheme
+ ((lambda (length)
+   (lambda (l)
+     (cond
+       ((null? l) 0)
+       (else
+        (add1 (length (cdr l)))))))
+ (lambda (x)
+   (((lambda (mk-length)
+       ((lambda (length)
+          (lambda (l)
+            (cond
+              ((null? l) 0)
+              (else
+               (add1 (length (cdr l)))))))
+        (lambda (x)
+          ((mk-length mk-length) x))))
+     (lambda (mk-length)
+       ((lambda (length)
+          (lambda (l)
+            (cond
+              ((null? l) 0)
+              (else
+               (add1 (length (cdr l)))))))
+        (lambda (x)
+          ((mk-length mk-length) x))))) x)))
+```
+
+頭が混乱してくるが、多分合ってるだろう。引数にリストを与えればちゃんと評価してくれた。
+
+で、これがさっきと何が違うのか。さっきまで無限に展開していた箇所がラムダ式になったので`else`のときしか評価されないってことかな。
+
+```scheme
+((lambda (le)
+   ((lambda (mk-length)
+      (mk-length mk-length))
+    (lambda (mk-length)
+      (le (lambda (x)
+            ((mk-length mk-length) x))))))
+ (lambda (length)
+   (lambda (l)
+     (cond
+       ((null? l) 0)
+       (else (add1 (length (cdr l))))))))
+```
+
+> これが正しい関数ですか？
+
+さて、次はどういうことだろうか。なんかさっきの関数を変形した形っぽい。後半部分は`length`関数の定義だな。前半はなんだろうか。
+
+> `length`を生成している関数を`length`のように見える関数から分離してみましょう。
+
+```scheme
+(lambda (le)
+  ((lambda (mk-length)
+     (mk-length mk-length))
+   (lambda (mk-length)
+     (le (lambda (x)
+           ((mk-length mk-length) x))))))
+```
+
+前半部分ですね。これが「`length`を生成している関数」と。
+
+で、これのことを**Yコンビネータ**と呼ぶらしい。
+
+```scheme
+(define Y
+  (lambda (le)
+    ((lambda (f) (f f))
+     (lambda (f)
+       (le (lambda (x) ((f f) x)))))))
+```
+
+さて、9章のゴールまで来てしまったが、まだ理解は浅い気がする。
+
+とりあえずさっきの`length`を`Y`を使って試してみる。
+
+```scheme
+((Y (lambda (length)
+   (lambda (l)
+     (cond
+       ((null? l) 0)
+       (else (add1 (length (cdr l)))))))) '(a b))
+; 2
+```
+
+ちゃんと動く。多分`length`以外もいけるってことなんだろうな。
+
+```scheme
+((Y (lambda (lat)
+        (lambda (l)
+          (cond
+            ((null? l) #t)
+            ((atom? (car l)) (lat? (cdr l)))
+            (else #f))))) '(a b c))
+; #t
+
+((Y (lambda (lat)
+        (lambda (l)
+          (cond
+            ((null? l) #t)
+            ((atom? (car l)) (lat? (cdr l)))
+            (else #f))))) '(a (b c)))
+; #f
+```
+
+できてるっぽい。
+
+引数が複数ある場合はカリー化すればよさそう。やはり[こちらのブログ](https://kb84tkhr.hatenablog.com/entry/2016/06/01/220205)が参考になる。ありがたし。
+
+十分な理解ではないけど、大ボリュームは9章を終えることができた。`define`を使わずに再帰関数を作るっておもしろいな。もう何回か読み返したりしながら理解を深めるとして、ひとまず次へ進もう。
+
+しかし、10章はさらに難解そうだ。

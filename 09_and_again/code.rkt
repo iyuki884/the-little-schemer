@@ -805,3 +805,9 @@
       ((zero? m) (A (sub1 n) 1))
       (else (A (sub1 n)
                (A n (sub1 m)))))))
+
+(define Y
+  (lambda (le)
+    ((lambda (f) (f f))
+     (lambda (f)
+       (le (lambda (x) ((f f) x)))))))
