@@ -50,12 +50,14 @@ sub1
 
 細かい誤記っぽいのが散見されるのでメモ。
 
-| ページ | 誤                      | 正                      | 備考                                             |
-|:---:|:----------------------:|:----------------------:|:----------------------------------------------:|
-| 23  | `((null? lat) nil)`    | `((null? lat) #f)`     | `member?`の4行目                                  |
-| 89  | `((null? l) nil)`      | `((null? l) #f)`       | `member*`の4行目                                  |
-| 116 | `((null? set1) t)`     | `((null? set1) #t)`    | `subset?`の4行目                                  |
-| 117 | `((null? set1) nil)`   | `((null? set1) #f)`    | `intersect?`の4行目                               |
-| 137 | `((test? a (cat lat))` | `((test? a (car lat))` | `multirember-f`の6行目                            |
-| 146 | lad は ...              | lat は ...              | 一番上の質問左側の7行目                                   |
-| 146 | `even-only*`を書いてください。  | `evens-only*`を書いてください。 | 4番目の質問左側の2行目<br/>以降は`evens-only*`になっているので誤記だろう |
+| ページ | 誤                      | 正                      | 備考                                                |
+|:---:|:----------------------:|:----------------------:|:-------------------------------------------------:|
+| 23  | `((null? lat) nil)`    | `((null? lat) #f)`     | `member?`の4行目                                     |
+| 89  | `((null? l) nil)`      | `((null? l) #f)`       | `member*`の4行目                                     |
+| 116 | `((null? set1) t)`     | `((null? set1) #t)`    | `subset?`の4行目                                     |
+| 117 | `((null? set1) nil)`   | `((null? set1) #f)`    | `intersect?`の4行目                                  |
+| 137 | `((test? a (cat lat))` | `((test? a (car lat))` | `multirember-f`の6行目                               |
+| 146 | lad は ...              | lat は ...              | 一番上の質問左側の7行目                                      |
+| 146 | `even-only*`を書いてください。  | `evens-only*`を書いてください。 | 4番目の質問左側の2行目<br/>以降は`evens-only*`になっているので誤記だろう    |
+| 154 | `para`                 | `pora`                 | `align`の引数<br/>意味的に`pora`(Pair OR Atom)の方が適切な気がする |
+| 155 | `para`                 | `pora`                 | `length*`の引数<br/>同上                               |
